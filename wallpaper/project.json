@@ -1,0 +1,91 @@
+{
+  "contentrating": "Everyone",
+  "description": "一望无际的灰色无机平面上，载具由五盏顶部点光源照明。左键拖拽可围绕载具观察，右侧滑条调整镜头距离；静置 10 秒后自动进入黑屏转场的环绕运镜。",
+  "file": "index.html",
+  "general": {
+    "properties": {
+      "cinematic": {
+        "order": 0,
+        "text": "自动运镜",
+        "type": "bool",
+        "value": true
+      },
+      "showclock": {
+        "order": 1,
+        "text": "显示时钟",
+        "type": "bool",
+        "value": true
+      },
+      "showname": {
+        "order": 2,
+        "text": "显示载具名",
+        "type": "bool",
+        "value": true
+      },
+      "vehicleheight": {
+        "order": 3,
+        "text": "载具高度偏移（%）",
+        "type": "slider",
+        "value": 0,
+        "min": -8,
+        "max": 8,
+        "step": 0.2
+      },
+      "exposure": {
+        "order": 4,
+        "text": "整体曝光",
+        "type": "slider",
+        "value": 0.8,
+        "min": 0.55,
+        "max": 1.25,
+        "step": 0.02
+      },
+      "lightintensity": {
+        "order": 5,
+        "text": "灯光强度",
+        "type": "slider",
+        "value": 1,
+        "min": 0.3,
+        "max": 2.5,
+        "step": 0.05
+      },
+      "modelbrightness": {
+        "order": 6,
+        "text": "载具亮度",
+        "type": "slider",
+        "value": 1.38,
+        "min": 0.7,
+        "max": 2,
+        "step": 0.05
+      },
+      "uvmode": {
+        "order": 7,
+        "text": "贴图 UV 映射",
+        "type": "combo",
+        "value": "none",
+        "options": [
+          {
+            "label": "按导出原样",
+            "value": "none"
+          },
+          {
+            "label": "上下镜像 (V)",
+            "value": "mirrorV"
+          },
+          {
+            "label": "左右镜像 (U)",
+            "value": "mirrorU"
+          },
+          {
+            "label": "双轴镜像 (U+V)",
+            "value": "mirrorUV"
+          }
+        ]
+      }
+    }
+  },
+  "tags": [],
+  "title": "VehicleOrbit",
+  "type": "web",
+  "version": 1
+}

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>J-10C / Grey Plane</title>
+<style>
+  /* 载具名牌字体：创客贴金刚体（商用免费） */
+  @font-face {
+    font-family: "VehicleNameplate";
+    src: url("assets/fonts/ChuangKeTieJinGangTi-2.otf");
+    font-weight: 400;          /* 只声明常规字重，700 时由浏览器合成加粗 */
+    font-style: normal;
+    font-display: block;
+  }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #0a0b0d; cursor: grab;
+  }
+  body.dragging { cursor: grabbing; }
+  body.zooming { cursor: ns-resize; }
+
+  /* 用户属性里关掉时钟 / 载具名 */
+  #clock.off, #title.off { display: none; }
+
+  /* 右侧贴边垂直滑条：镜头距离。20px 宽的热区，中间 3px 才是可见轨道 */
+  #zoomtrack {
+    position: fixed; right: 12px; top: 50%;
+    transform: translateY(-50%);
+    width: 20px; height: 44vh;
+    cursor: ns-resize;
+    opacity: .5;
+    transition: opacity .25s ease;
+    z-index: 6;
+  }
+  #zoomtrack::before {
+    content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
+    width: 3px; margin-left: -1.5px;
+    background: rgba(255, 255, 255, .18);
+    border-radius: 2px;
+    transition: background .25s ease;
+  }
+  #zoomtrack:hover, #zoomtrack.active { opacity: 1; }
+  #zoomtrack:hover::before, #zoomtrack.active::before { background: rgba(255, 255, 255, .34); }
+  #zoomthumb {
+    position: absolute; left: 50%; top: 0;
+    width: 13px; height: 13px;
+    margin: -6.5px 0 0 -6.5px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .55);
+    pointer-events: none;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  /* 暗角：让中间的模型更聚焦 */
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 46%,
+                rgba(0,0,0,0) 38%,
+                rgba(0,0,0,0.28) 72%,
+                rgba(0,0,0,0.62) 100%);
+  }
+
+  #hint {
+    position: fixed; left: 0; right: 0; bottom: 26px;
+    text-align: center; pointer-events: none;
+    font: 400 12px/1.6 "Segoe UI", "Microsoft YaHei", sans-serif;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: rgba(255,255,255,.26);
+    transition: opacity 1.2s ease;
+  }
+  #hint.hide { opacity: 0; }
+
+  /* 运镜黑屏过渡 */
+  #fade {
+    position: fixed; inset: 0; background: #000; opacity: 0;
+    pointer-events: none; z-index: 5;
+  }
+
+  /* 右上角信息区：时钟在上，载具名在下 */
+  #hud {
+    position: fixed; top: 26px; right: 34px;
+    text-align: right;
+    font-family: "VehicleNameplate", "Bahnschrift SemiCondensed", "Noto Sans SC",
+                 "Microsoft YaHei", sans-serif;
+    font-weight: 600;
+    font-synthesis: weight;
+    -webkit-text-stroke: 0.15px currentColor;
+    z-index: 6;              /* 高于黑屏遮罩(5)，运镜过渡时文字不跟着黑掉 */
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #hud > * { display: block; }
+
+  /* 大时钟：两层错位文字做阴影 */
+  #clock {
+    position: relative;
+    --cdx: 4px;
+    --cdy: 4px;
+    opacity: 0;
+    transition: opacity .8s ease;
+  }
+  #clock.show { opacity: 1; }
+  #clock .layer { display: block; }
+  #clock .back {
+    position: absolute; top: 0; right: 0;
+    color: rgba(0, 0, 0, .55);
+    transform: translate(var(--cdx), var(--cdy));
+    z-index: 0;
+  }
+  #clock .front {
+    position: relative;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    z-index: 1;
+  }
+  #clock .time { font-size: 54px; line-height: 1.02; letter-spacing: .05em; }
+  #clock .date { font-size: 20px; line-height: 1.2; letter-spacing: .10em; margin-top: 4px; opacity: .92; }
+
+  /* 右上角载具名：同一段文字两遍，后面的错位作为阴影 */
+  #title {
+    position: relative;
+    margin-top: 14px;
+    font-size: 26px;
+    line-height: 1.2;
+    letter-spacing: .10em;
+    --dx: 3px;
+    --dy: 3px;
+    opacity: 0;
+    transition: opacity .8s ease;
+  }
+  #title.show { opacity: 1; }
+
+  #title .back,
+  #title .front { white-space: nowrap; }
+
+  #title .back {
+    position: absolute; top: 0; right: 0;
+    color: rgba(0, 0, 0, .55);
+    transform: translate(var(--dx), var(--dy));
+    z-index: 0;
+  }
+  #title .front {
+    position: relative;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    z-index: 1;
+  }
+
+  #loader {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #0a0b0d; transition: opacity .8s ease; z-index: 10;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  #bar {
+    width: 240px; height: 2px;
+    background: rgba(255, 255, 255, .14);
+    overflow: hidden; border-radius: 1px;
+  }
+  #bar > i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, rgba(255,255,255,.45), #fff);
+    box-shadow: 0 0 8px rgba(255, 255, 255, .45);
+    transition: width .15s linear;
+  }
+
+  #err {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    color: #c66; font: 13px/1.7 monospace; padding: 40px; text-align: center; z-index: 20;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="vignette"></div>
+
+<div id="hud">
+  <div id="clock">
+    <div class="layer back" aria-hidden="true"><div class="time"></div><div class="date"></div></div>
+    <div class="layer front"><div class="time"></div><div class="date"></div></div>
+  </div>
+  <div id="title"><span class="back" aria-hidden="true"></span><span class="front"></span></div>
+</div>
+
+<div id="zoomtrack"><div id="zoomthumb"></div></div>
+<div id="fade"></div>
+<div id="hint">左键拖拽环绕 &nbsp;·&nbsp; 右侧滑条调距离</div>
+
+<div id="loader"><div id="bar"><i></i></div></div>
+<div id="err"></div>
+
+<script src="js/lib/three.min.js"></script>
+<script src="js/lib/GLTFLoader.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
